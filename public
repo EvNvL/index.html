@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeyvandComm Secure Node Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b',
+                        accent: '#f97316'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-darkbg text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 bg-cardbg px-6 py-4 flex justify-between items-center shadow-md">
+        <div class="flex items-center space-x-3">
+            <span class="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+            <h1 class="text-xl font-bold tracking-wider text-orange-500">PeyvandComm Node Console</h1>
+        </div>
+        <div class="text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded border border-slate-700">
+            Node: <span class="text-orange-400">0xNode_Alpha (Local)</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Left Panel: Controls & Packet Dispatcher -->
+        <div class="bg-cardbg rounded-xl p-5 border border-slate-800 flex flex-col justify-between shadow-lg">
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold border-b border-slate-700 pb-2 text-slate-200">Dispatch Encrypted Packet</h2>
+                
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Recipient Address</label>
+                    <input id="recipientInput" type="text" value="0xNode_Beta" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Anti-Spam Gas Fee (PeyvandCoin)</label>
+                    <input id="feeInput" type="number" step="0.0001" value="0.001" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1">Message Body (AES-GCM Payload)</label>
+                    <textarea id="messageInput" rows="4" placeholder="Enter secure message..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500"></textarea>
+                </div>
+            </div>
+
+            <button onclick="dispatchPacket()" class="mt-6 w-full bg-orange-600 hover:bg-orange-500 text-white font-semibold py-2.5 rounded-lg transition shadow-md flex items-center justify-center space-x-2">
+                <span>Sign & Broadcast Packet</span>
+            </button>
+        </div>
+
+        <!-- Right Panel: Live Bidirectional Message Feed & Inbox -->
+        <div class="md:col-span-2 bg-cardbg rounded-xl p-5 border border-slate-800 flex flex-col shadow-lg">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2 mb-4">
+                <h2 class="text-lg font-semibold text-slate-200">Live Secure Inbox & Telemetry</h2>
+                <button onclick="clearInbox()" class="text-xs text-slate-400 hover:text-red-400 transition">Clear Local DB</button>
+            </div>
+
+            <!-- Messages Feed Container -->
+            <div id="inboxFeed" class="flex-1 overflow-y-auto space-y-3 pr-2 max-h-[550px]">
+                <!-- Dynamic messages populate here -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer Telemetry -->
+    <footer class="border-t border-slate-800 bg-cardbg px-6 py-3 text-xs text-slate-500 flex justify-between items-center font-mono">
+        <div>Protocol: TCP_JSON_STREAM | AES-GCM: ENABLED</div>
+        <div id="packetCount">Total Packets Tracked: 0</div>
+    </footer>
+
+    <!-- JavaScript Execution Engine -->
+    <script>
+        // Load existing inbox from localStorage on startup
+        let inbox = JSON.parse(localStorage.getItem('peyvand_inbox') || '[]');
+
+        function renderInbox() {
+            const feed = document.getElementById('inboxFeed');
+            document.getElementById('packetCount').innerText = `Total Packets Tracked: ${inbox.length}`;
+            
+            if (inbox.length === 0) {
+                feed.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-48 text-slate-500">
+                        <svg class="w-12 h-12 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                        <p>No packets in local ledger. Dispatch a message to test bidirectional sync.</p>
+                    </div>`;
+                return;
+            }
+
+            feed.innerHTML = inbox.map((msg, index) => `
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-2 shadow">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-orange-400 font-mono">From: ${msg.sender}</span>
+                        <span class="text-slate-500">${new Date(msg.timestamp * 1000).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="text-sm font-medium text-slate-100 bg-slate-950 p-2.5 rounded border border-slate-800/60">
+                        ${escapeHTML(msg.body)}
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] text-slate-400 font-mono">
+                        <span>CID: ${msg.cid}</span>
+                        <span class="text-green-400 bg-green-950/40 px-2 py-0.5 rounded border border-green-800/40">Fee: ${msg.fee} PeyvandCoin</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function dispatchPacket() {
+            const recipient = document.getElementById('recipientInput').value;
+            const fee = parseFloat(document.getElementById('feeInput').value);
+            const body = document.getElementById('messageInput').value;
+
+            if (!body.trim()) {
+                alert('Message body cannot be empty.');
+                return;
+            }
+
+            // Simulate cryptographic envelope and IPFS CID generation
+            const timestamp = Date.now() / 1000;
+            const mockCID = 'Qm' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            
+            const newPacket = {
+                id: Math.random().toString(36).substring(2),
+                sender: "0xNode_Alpha",
+                recipient: recipient,
+                fee: fee,
+                body: body,
+                cid: mockCID,
+                timestamp: timestamp
+            };
+
+            inbox.unshift(newPacket);
+            localStorage.setItem('peyvand_inbox', JSON.stringify(inbox));
+            
+            document.getElementById('messageInput').value = '';
+            renderInbox();
+        }
+
+        function clearInbox() {
+            if (confirm("Are you sure you want to clear local storage inbox?")) {
+                inbox = [];
+                localStorage.removeItem('peyvand_inbox');
+                renderInbox();
+            }
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag)
+            );
+        }
+
+        // Initial render on load
+        renderInbox();
+    </script>
+</body>
+</html>
